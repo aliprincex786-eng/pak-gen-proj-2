@@ -141,12 +141,13 @@ def get_gemini_client():
 # ---------------------------------------------------------
 
 def generate_study_resources(topic, level, resource_count):
+
     client = get_gemini_client()
 
     if client is None:
         raise ValueError(
-            "Gemini API key is missing. Add GEMINI_API_KEY to "
-            "Streamlit Secrets or your environment variables."
+            "Gemini API key is missing. Add GEMINI_API_KEY "
+            "to Streamlit Secrets."
         )
 
     prompt = f"""
@@ -160,57 +161,56 @@ TOPIC:
 STUDENT LEVEL:
 {level}
 
-Find useful, legitimate, educational resources for this topic.
+Find useful educational resources for this topic.
 
-Return a structured response containing:
+The student needs:
 
-1. A short explanation of the topic.
-2. A beginner-friendly learning roadmap.
-3. Recommended educational resources.
-4. YouTube/video resources.
-5. Websites/articles/documentation.
-6. Free resources whenever possible.
-7. A suggested learning order.
+1. Short explanation of the topic
+2. Beginner-friendly learning roadmap
+3. Video resources
+4. Websites
+5. Articles
+6. Documentation
+7. Free learning resources
+8. Recommended learning order
 
 IMPORTANT:
-- Use real web resources.
-- Do not invent URLs.
-- Prefer reputable educational sources.
-- Prefer official documentation, universities,
-  recognized educational websites, and high-quality
-  educational YouTube channels.
-- Explain why each resource is useful.
-- Keep recommendations relevant to the exact topic.
-- Do not recommend unsafe, illegal, pirated, or misleading content.
-
-Return the final answer in clear Markdown.
+- Search the web for real resources.
+- DO NOT invent URLs.
+- Prefer reputable educational websites.
+- Prefer official documentation.
+- Prefer high-quality educational videos.
+- Clearly explain why each resource is useful.
+- Keep resources directly relevant to the topic.
 
 Maximum resources:
 {resource_count}
+
+Format the answer using Markdown.
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config={
-            "tools": [{"google_search": {}}]
-        }
+    interaction = client.interactions.create(
+        model="gemini-3.6-flash",
+        input=prompt,
+        tools=[
+            {
+                "type": "google_search"
+            }
+        ]
     )
 
-    return response.text
-
+    return interaction.output_text
 
 # ---------------------------------------------------------
 # AI TUTOR
 # ---------------------------------------------------------
 
 def ask_tutor(topic, question):
+
     client = get_gemini_client()
 
     if client is None:
-        raise ValueError(
-            "Gemini API key is missing. Configure GEMINI_API_KEY first."
-        )
+        raise ValueError("Gemini API key is missing.")
 
     prompt = f"""
 You are an AI tutor.
@@ -223,21 +223,17 @@ Student question:
 
 Explain the answer in simple language.
 
-Requirements:
-- Start with a simple explanation.
-- Give an example when useful.
-- Avoid unnecessary complexity.
-- If the question contains a misconception,
-  politely correct it.
-- Use Markdown formatting.
+Give examples when useful.
+Correct misconceptions politely.
+Use Markdown.
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
+    interaction = client.interactions.create(
+        model="gemini-3.6-flash",
+        input=prompt
     )
 
-    return response.text
+    return interaction.output_text
 
 
 # ---------------------------------------------------------
@@ -245,6 +241,7 @@ Requirements:
 # ---------------------------------------------------------
 
 def generate_quiz(topic):
+
     client = get_gemini_client()
 
     if client is None:
@@ -256,22 +253,20 @@ Create a 5-question multiple-choice quiz about:
 {topic}
 
 Rules:
-- Questions should test understanding.
-- 4 options per question.
-- Exactly one correct answer.
-- Include the correct answer after each question.
-- Include a short explanation.
+- 4 options per question
+- Exactly one correct answer
+- Include the correct answer
+- Include a short explanation
 
 Return Markdown.
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
+    interaction = client.interactions.create(
+        model="gemini-3.6-flash",
+        input=prompt
     )
 
-    return response.text
-
+    return interaction.output_text
 
 # ---------------------------------------------------------
 # HEADER
