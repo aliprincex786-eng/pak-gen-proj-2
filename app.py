@@ -1,12 +1,10 @@
 import os
-import json
-import re
 import requests
 import streamlit as st
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -29,16 +27,21 @@ st.markdown(
     }
 
     .hero {
-        padding: 35px 20px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #0f172a, #1e3a8a);
+        padding: 40px 25px;
+        border-radius: 22px;
+        background: linear-gradient(
+            135deg,
+            #0f172a,
+            #1d4ed8
+        );
         color: white;
         text-align: center;
         margin-bottom: 30px;
     }
 
     .hero h1 {
-        font-size: 42px;
+        font-size: 44px;
+        font-weight: 800;
         margin-bottom: 10px;
     }
 
@@ -47,27 +50,12 @@ st.markdown(
         opacity: 0.9;
     }
 
-    .resource-card {
+    .info-card {
         padding: 20px;
-        border-radius: 15px;
-        background-color: white;
+        border-radius: 16px;
+        background: white;
         border: 1px solid #e2e8f0;
         margin-bottom: 15px;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
-    }
-
-    .resource-card h3 {
-        margin-top: 0;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 5px 10px;
-        border-radius: 20px;
-        background-color: #dbeafe;
-        color: #1e40af;
-        font-size: 13px;
-        margin-bottom: 8px;
     }
 
     </style>
@@ -77,66 +65,51 @@ st.markdown(
 
 
 # ============================================================
-# API CONFIGURATION
+# GROQ CONFIGURATION
 # ============================================================
 
-def get_api_key():
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+MODEL_NAME = "openai/gpt-oss-120b"
+
+
+def get_groq_api_key():
     """
-    Get API key from Streamlit secrets first,
-    then environment variables.
+    Gets the Groq API key from Streamlit Secrets
+    or from an environment variable.
     """
 
     try:
-        if "MODEL_API_KEY" in st.secrets:
-            return st.secrets["MODEL_API_KEY"]
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
     except Exception:
         pass
 
-    return os.getenv("MODEL_API_KEY")
-
-
-def get_api_url():
-    """
-    OpenAI-compatible endpoint.
-
-    Replace this with the endpoint supplied by
-    your gpt-oss-120b hosting provider.
-    """
-
-    try:
-        if "MODEL_API_URL" in st.secrets:
-            return st.secrets["MODEL_API_URL"]
-    except Exception:
-        pass
-
-    return os.getenv(
-        "MODEL_API_URL",
-        "https://api.example.com/v1/chat/completions"
-    )
-
-
-MODEL_NAME = "gpt-oss-120b"
+    return os.getenv("GROQ_API_KEY")
 
 
 # ============================================================
-# CALL MODEL
+# GROQ API FUNCTION
 # ============================================================
 
-def call_model(prompt, temperature=0.3):
+def call_groq(
+    prompt,
+    temperature=0.3,
+    max_tokens=2500
+):
+    """
+    Sends a request to Groq using the
+    OpenAI-compatible Chat Completions API.
+    """
 
-    api_key = get_api_key()
-    api_url = get_api_url()
+    api_key = get_groq_api_key()
 
     if not api_key:
-        return None, (
-            "API key is missing. Add MODEL_API_KEY to your "
-            "Streamlit Secrets."
-        )
 
-    if "example.com" in api_url:
         return None, (
-            "MODEL_API_URL is not configured. Add the real "
-            "OpenAI-compatible endpoint for your gpt-oss-120b provider."
+            "❌ GROQ_API_KEY is missing.\n\n"
+            "Please add your Groq API key to "
+            "Streamlit Secrets."
         )
 
     headers = {
@@ -146,13 +119,19 @@ def call_model(prompt, temperature=0.3):
 
     payload = {
         "model": MODEL_NAME,
+
         "messages": [
             {
                 "role": "system",
                 "content": (
-                    "You are StudyFinder AI, an educational research "
-                    "assistant. Give accurate, useful and student-friendly "
-                    "answers. Never invent URLs."
+                    "You are StudyFinder AI, an intelligent "
+                    "educational assistant. "
+                    "Your job is to help students discover "
+                    "useful learning resources and understand "
+                    "academic topics. "
+                    "Always be accurate, practical and easy "
+                    "to understand. "
+                    "Never invent URLs."
                 )
             },
             {
@@ -160,64 +139,119 @@ def call_model(prompt, temperature=0.3):
                 "content": prompt
             }
         ],
-        "temperature": temperature
+
+        "temperature": temperature,
+
+        "max_tokens": max_tokens
     }
 
     try:
 
         response = requests.post(
-            api_url,
+            GROQ_API_URL,
             headers=headers,
             json=payload,
             timeout=90
         )
 
+        # ----------------------------------------------------
+        # RATE LIMIT
+        # ----------------------------------------------------
+
+        if response.status_code == 429:
+
+            return None, (
+                "⚠️ Groq rate limit reached.\n\n"
+                "Please wait a few seconds and try again."
+            )
+
+        # ----------------------------------------------------
+        # INVALID API KEY
+        # ----------------------------------------------------
+
+        if response.status_code in [401, 403]:
+
+            return None, (
+                "❌ Your Groq API key is invalid or "
+                "does not have permission to use this API."
+            )
+
+        # ----------------------------------------------------
+        # OTHER API ERROR
+        # ----------------------------------------------------
+
         if response.status_code != 200:
 
             try:
                 error_data = response.json()
-                error_message = error_data.get(
-                    "error",
-                    response.text
+
+                error_message = (
+                    error_data
+                    .get("error", {})
+                    .get("message", response.text)
                 )
+
             except Exception:
+
                 error_message = response.text
 
             return None, (
-                f"Model API error ({response.status_code}): "
+                f"❌ Groq API Error "
+                f"({response.status_code}):\n\n"
                 f"{error_message}"
             )
 
+        # ----------------------------------------------------
+        # SUCCESS
+        # ----------------------------------------------------
+
         data = response.json()
 
-        answer = data["choices"][0]["message"]["content"]
+        answer = (
+            data["choices"][0]["message"]["content"]
+        )
 
         return answer, None
 
     except requests.exceptions.Timeout:
 
         return None, (
-            "The AI server took too long to respond. "
+            "⏱️ Groq took too long to respond. "
             "Please try again."
+        )
+
+    except requests.exceptions.ConnectionError:
+
+        return None, (
+            "🌐 Could not connect to Groq. "
+            "Please check your internet connection."
         )
 
     except requests.exceptions.RequestException as e:
 
-        return None, f"Connection error: {str(e)}"
+        return None, (
+            f"❌ Network error:\n\n{str(e)}"
+        )
 
     except Exception as e:
 
-        return None, f"Unexpected error: {str(e)}"
+        return None, (
+            f"❌ Unexpected error:\n\n{str(e)}"
+        )
 
 
 # ============================================================
-# STUDY RESOURCE GENERATOR
+# RESOURCE GENERATOR
 # ============================================================
 
-def generate_resources(topic, level, resource_count):
+def generate_resources(
+    topic,
+    level,
+    resource_count
+):
 
     prompt = f"""
-Create a study-resource guide for this topic:
+Create a personalized study guide.
 
 TOPIC:
 {topic}
@@ -225,60 +259,89 @@ TOPIC:
 STUDENT LEVEL:
 {level}
 
-The student wants approximately {resource_count} useful resources.
+NUMBER OF RESOURCES:
+{resource_count}
 
-Return the answer in Markdown.
+Return the answer using Markdown.
 
-Organize it into:
+Use this exact structure:
 
 # 📚 Study Guide
 
-## 1. Topic Overview
+## 🎯 Topic Overview
+
 Explain the topic in simple language.
 
-## 2. Recommended Learning Path
-Give 4-6 steps in the order the student should learn them.
+## 🛣️ Recommended Learning Path
 
-## 3. 🎥 Videos
-Give useful YouTube search links rather than inventing
-specific video URLs.
+Create a step-by-step learning path.
 
-For each video recommendation provide:
-- Title/topic
-- What the student will learn
-- YouTube search link
+## 🎥 Video Resources
 
-Use this format:
+Recommend useful video topics.
 
-[Search YouTube](https://www.youtube.com/results?search_query=...)
+IMPORTANT:
+Do NOT invent individual video URLs.
 
-## 4. 🌐 Websites
+Instead create YouTube search links like:
+
+https://www.youtube.com/results?search_query=YOUR+SEARCH+QUERY
+
+For every video recommendation include:
+
+### Video X
+**Topic:** ...
+**Why watch it:** ...
+**YouTube Search:** ...
+
+## 🌐 Websites
+
 Recommend useful educational websites.
 
-For each:
-- Website name
-- Why it is useful
-- Official URL
+For every website provide:
 
-Only provide URLs you are confident about.
+**Website:** ...
+**Purpose:** ...
+**URL:** ...
 
-## 5. 📖 Courses / Articles
-Recommend useful courses, tutorials or articles.
+Only provide URLs you are confident are real.
 
-## 6. 🧠 Practice
+Prefer reputable educational resources such as:
+
+- MDN
+- W3Schools
+- GeeksforGeeks
+- freeCodeCamp
+- Khan Academy
+- Coursera
+- edX
+- MIT OpenCourseWare
+- official documentation
+
+## 📖 Courses & Tutorials
+
+Recommend useful courses or tutorials.
+
+## 🧪 Practice
+
 Give 3 practical exercises.
 
-## 7. ⭐ Best Starting Resource
-Choose the single best starting point for this student.
+## ⭐ Best Starting Point
+
+Tell the student which resource they should start with and why.
 
 IMPORTANT:
 - Do not invent URLs.
-- Prefer reputable educational sources.
-- Keep the explanation practical.
+- Keep the answer practical.
+- Use simple English.
 - Do not overwhelm the student.
 """
 
-    return call_model(prompt)
+    return call_groq(
+        prompt,
+        temperature=0.3,
+        max_tokens=3500
+    )
 
 
 # ============================================================
@@ -288,27 +351,32 @@ IMPORTANT:
 def ask_tutor(topic, question):
 
     prompt = f"""
-You are an AI tutor.
+You are an expert university tutor.
 
-The student's topic is:
-
+CURRENT TOPIC:
 {topic}
 
-Student question:
-
+STUDENT QUESTION:
 {question}
 
-Answer like a helpful university tutor.
+Answer the student clearly.
 
 Requirements:
-- Explain step by step.
-- Use simple English.
-- Give an example where useful.
-- Correct misconceptions.
-- Do not make the answer unnecessarily long.
+
+1. Explain step-by-step.
+2. Use simple English.
+3. Give an example.
+4. Correct misunderstandings.
+5. Keep the answer focused.
+6. Use code examples when the topic is programming.
+7. Use Markdown headings and bullet points.
 """
 
-    return call_model(prompt, temperature=0.4)
+    return call_groq(
+        prompt,
+        temperature=0.4,
+        max_tokens=2000
+    )
 
 
 # ============================================================
@@ -318,41 +386,54 @@ Requirements:
 def generate_quiz(topic):
 
     prompt = f"""
-Create a short quiz about:
+Create a quiz for a student studying:
 
 {topic}
 
 Create exactly 5 multiple-choice questions.
 
-For every question provide:
+Use this format:
 
-Question:
-A)
-B)
-C)
-D)
+## Question 1
 
-Correct Answer:
-Explanation:
+Question text
 
-Keep the difficulty suitable for a student learning this topic.
+A. Option
+B. Option
+C. Option
+D. Option
+
+**Correct Answer:** B
+
+**Explanation:** Explain why.
+
+Repeat this for all 5 questions.
+
+Make the questions educational rather than trivial.
 """
 
-    return call_model(prompt, temperature=0.5)
+    return call_groq(
+        prompt,
+        temperature=0.5,
+        max_tokens=2500
+    )
 
 
 # ============================================================
-# HERO
+# HERO SECTION
 # ============================================================
 
 st.markdown(
     """
     <div class="hero">
+
         <h1>🎓 StudyFinder AI</h1>
+
         <p>
             Describe what you want to learn and discover
             videos, websites, courses and practice resources.
         </p>
+
     </div>
     """,
     unsafe_allow_html=True
@@ -394,12 +475,18 @@ with st.sidebar:
 
         **2.** AI analyzes it
 
-        **3.** Study resources are generated
+        **3.** Resources are generated
 
-        **4.** Ask the AI tutor
+        **4.** Ask the AI Tutor
 
-        **5.** Test yourself with a quiz
+        **5.** Generate a quiz
         """
+    )
+
+    st.divider()
+
+    st.caption(
+        "Powered by Groq + gpt-oss-120b"
     )
 
 
@@ -411,31 +498,33 @@ st.subheader("🔎 What do you want to learn?")
 
 topic = st.text_input(
     "Enter a course, subject or topic",
-    placeholder="Example: Data Structures and Algorithms"
+    placeholder=(
+        "Example: Python Data Structures"
+    )
 )
 
 
-search_clicked = st.button(
+# ============================================================
+# SEARCH BUTTON
+# ============================================================
+
+if st.button(
     "🚀 Find Study Resources",
     use_container_width=True,
     type="primary"
-)
-
-
-# ============================================================
-# SEARCH
-# ============================================================
-
-if search_clicked:
+):
 
     if not topic.strip():
 
-        st.warning("Please enter a topic first.")
+        st.warning(
+            "⚠️ Please enter a topic first."
+        )
 
     else:
 
         with st.spinner(
-            "🤖 AI is creating your personalized study guide..."
+            "🤖 gpt-oss-120b is creating "
+            "your study guide..."
         ):
 
             result, error = generate_resources(
@@ -451,11 +540,30 @@ if search_clicked:
         else:
 
             st.session_state["topic"] = topic.strip()
+
             st.session_state["resources"] = result
 
-            st.success("Study resources generated!")
+            st.success(
+                "✅ Study resources generated!"
+            )
 
             st.markdown(result)
+
+
+# ============================================================
+# DISPLAY SAVED RESOURCES
+# ============================================================
+
+if "resources" in st.session_state:
+
+    if not st.session_state.get(
+        "resources_displayed",
+        False
+    ):
+
+        st.session_state[
+            "resources_displayed"
+        ] = True
 
 
 # ============================================================
@@ -469,24 +577,29 @@ if "topic" in st.session_state:
     st.header("🤖 AI Tutor")
 
     tutor_question = st.text_area(
-        "Ask anything about your topic",
+        "Ask a question about your topic",
         placeholder=(
-            "Example: Explain linked lists with a real-world example."
+            "Example: Explain linked lists "
+            "with a real-world example."
         )
     )
 
     if st.button(
-        "Ask AI Tutor",
+        "💬 Ask AI Tutor",
         use_container_width=True
     ):
 
         if not tutor_question.strip():
 
-            st.warning("Please enter a question.")
+            st.warning(
+                "Please enter a question."
+            )
 
         else:
 
-            with st.spinner("AI Tutor is thinking..."):
+            with st.spinner(
+                "🤖 AI Tutor is thinking..."
+            ):
 
                 answer, error = ask_tutor(
                     st.session_state["topic"],
@@ -499,7 +612,9 @@ if "topic" in st.session_state:
 
             else:
 
-                st.markdown("### 💬 Tutor Answer")
+                st.markdown(
+                    "### 💡 Tutor Answer"
+                )
 
                 st.markdown(answer)
 
@@ -515,11 +630,13 @@ if "topic" in st.session_state:
     st.header("🧠 Test Your Knowledge")
 
     if st.button(
-        "Generate 5-Question Quiz",
+        "📝 Generate 5-Question Quiz",
         use_container_width=True
     ):
 
-        with st.spinner("Creating your quiz..."):
+        with st.spinner(
+            "🤖 Creating your quiz..."
+        ):
 
             quiz, error = generate_quiz(
                 st.session_state["topic"]
@@ -541,5 +658,6 @@ if "topic" in st.session_state:
 st.divider()
 
 st.caption(
-    "🎓 StudyFinder AI • Powered by Streamlit + gpt-oss-120b"
+    "🎓 StudyFinder AI | "
+    "Streamlit + Groq + gpt-oss-120b"
 )
