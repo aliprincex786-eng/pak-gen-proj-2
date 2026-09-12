@@ -1,159 +1,223 @@
 import os
-import re
 import json
-import html
+import re
+import requests
 import streamlit as st
-from google import genai
 
-# ---------------------------------------------------------
+
+# ============================================================
 # PAGE CONFIG
-# ---------------------------------------------------------
+# ============================================================
 
 st.set_page_config(
     page_title="StudyFinder AI",
     page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
-# ---------------------------------------------------------
-# CUSTOM CSS
-# ---------------------------------------------------------
 
-st.markdown("""
-<style>
-    .stApp {
-        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main {
+        background-color: #f8fafc;
     }
 
     .hero {
+        padding: 35px 20px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #0f172a, #1e3a8a);
+        color: white;
         text-align: center;
-        padding: 45px 20px 25px 20px;
+        margin-bottom: 30px;
     }
 
     .hero h1 {
-        font-size: 52px;
-        font-weight: 800;
+        font-size: 42px;
         margin-bottom: 10px;
-        color: #111827;
-    }
-
-    .hero h1 span {
-        color: #6366f1;
     }
 
     .hero p {
-        font-size: 19px;
-        color: #6b7280;
-        max-width: 750px;
-        margin: auto;
-    }
-
-    .topic-box {
-        background: white;
-        border-radius: 18px;
-        padding: 25px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
-        margin-bottom: 25px;
-    }
-
-    .section-title {
-        font-size: 28px;
-        font-weight: 750;
-        color: #111827;
-        margin-top: 25px;
-        margin-bottom: 15px;
+        font-size: 18px;
+        opacity: 0.9;
     }
 
     .resource-card {
-        background: white;
-        border-radius: 16px;
         padding: 20px;
+        border-radius: 15px;
+        background-color: white;
+        border: 1px solid #e2e8f0;
         margin-bottom: 15px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 5px 18px rgba(0,0,0,0.04);
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
     }
 
     .resource-card h3 {
         margin-top: 0;
-        color: #111827;
     }
 
-    .resource-type {
+    .badge {
         display: inline-block;
-        background: #eef2ff;
-        color: #4f46e5;
         padding: 5px 10px;
         border-radius: 20px;
-        font-size: 12px;
-        font-weight: 700;
+        background-color: #dbeafe;
+        color: #1e40af;
+        font-size: 13px;
         margin-bottom: 8px;
     }
 
-    .roadmap-card {
-        background: white;
-        padding: 18px;
-        border-radius: 14px;
-        border-left: 5px solid #6366f1;
-        margin-bottom: 12px;
-    }
-
-    .footer {
-        text-align: center;
-        color: #6b7280;
-        padding: 40px 10px 20px 10px;
-    }
-
-    div.stButton > button {
-        border-radius: 10px;
-        font-weight: 700;
-    }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
-# ---------------------------------------------------------
-# GEMINI CLIENT
-# ---------------------------------------------------------
+# ============================================================
+# API CONFIGURATION
+# ============================================================
 
-def get_gemini_client():
+def get_api_key():
     """
-    Supports:
-    1. Streamlit Cloud secrets
-    2. Local environment variable
+    Get API key from Streamlit secrets first,
+    then environment variables.
     """
-
-    api_key = None
 
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        if "MODEL_API_KEY" in st.secrets:
+            return st.secrets["MODEL_API_KEY"]
     except Exception:
-        api_key = os.getenv("GEMINI_API_KEY")
+        pass
+
+    return os.getenv("MODEL_API_KEY")
+
+
+def get_api_url():
+    """
+    OpenAI-compatible endpoint.
+
+    Replace this with the endpoint supplied by
+    your gpt-oss-120b hosting provider.
+    """
+
+    try:
+        if "MODEL_API_URL" in st.secrets:
+            return st.secrets["MODEL_API_URL"]
+    except Exception:
+        pass
+
+    return os.getenv(
+        "MODEL_API_URL",
+        "https://api.example.com/v1/chat/completions"
+    )
+
+
+MODEL_NAME = "gpt-oss-120b"
+
+
+# ============================================================
+# CALL MODEL
+# ============================================================
+
+def call_model(prompt, temperature=0.3):
+
+    api_key = get_api_key()
+    api_url = get_api_url()
 
     if not api_key:
-        return None
-
-    return genai.Client(api_key=api_key)
-
-
-# ---------------------------------------------------------
-# GEMINI CALL
-# ---------------------------------------------------------
-
-def generate_study_resources(topic, level, resource_count):
-
-    client = get_gemini_client()
-
-    if client is None:
-        raise ValueError(
-            "Gemini API key is missing. Add GEMINI_API_KEY "
-            "to Streamlit Secrets."
+        return None, (
+            "API key is missing. Add MODEL_API_KEY to your "
+            "Streamlit Secrets."
         )
 
-    prompt = f"""
-You are an expert educational resource curator.
+    if "example.com" in api_url:
+        return None, (
+            "MODEL_API_URL is not configured. Add the real "
+            "OpenAI-compatible endpoint for your gpt-oss-120b provider."
+        )
 
-The student wants to learn:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are StudyFinder AI, an educational research "
+                    "assistant. Give accurate, useful and student-friendly "
+                    "answers. Never invent URLs."
+                )
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": temperature
+    }
+
+    try:
+
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=payload,
+            timeout=90
+        )
+
+        if response.status_code != 200:
+
+            try:
+                error_data = response.json()
+                error_message = error_data.get(
+                    "error",
+                    response.text
+                )
+            except Exception:
+                error_message = response.text
+
+            return None, (
+                f"Model API error ({response.status_code}): "
+                f"{error_message}"
+            )
+
+        data = response.json()
+
+        answer = data["choices"][0]["message"]["content"]
+
+        return answer, None
+
+    except requests.exceptions.Timeout:
+
+        return None, (
+            "The AI server took too long to respond. "
+            "Please try again."
+        )
+
+    except requests.exceptions.RequestException as e:
+
+        return None, f"Connection error: {str(e)}"
+
+    except Exception as e:
+
+        return None, f"Unexpected error: {str(e)}"
+
+
+# ============================================================
+# STUDY RESOURCE GENERATOR
+# ============================================================
+
+def generate_resources(topic, level, resource_count):
+
+    prompt = f"""
+Create a study-resource guide for this topic:
 
 TOPIC:
 {topic}
@@ -161,299 +225,321 @@ TOPIC:
 STUDENT LEVEL:
 {level}
 
-Find useful educational resources for this topic.
+The student wants approximately {resource_count} useful resources.
 
-The student needs:
+Return the answer in Markdown.
 
-1. Short explanation of the topic
-2. Beginner-friendly learning roadmap
-3. Video resources
-4. Websites
-5. Articles
-6. Documentation
-7. Free learning resources
-8. Recommended learning order
+Organize it into:
+
+# 📚 Study Guide
+
+## 1. Topic Overview
+Explain the topic in simple language.
+
+## 2. Recommended Learning Path
+Give 4-6 steps in the order the student should learn them.
+
+## 3. 🎥 Videos
+Give useful YouTube search links rather than inventing
+specific video URLs.
+
+For each video recommendation provide:
+- Title/topic
+- What the student will learn
+- YouTube search link
+
+Use this format:
+
+[Search YouTube](https://www.youtube.com/results?search_query=...)
+
+## 4. 🌐 Websites
+Recommend useful educational websites.
+
+For each:
+- Website name
+- Why it is useful
+- Official URL
+
+Only provide URLs you are confident about.
+
+## 5. 📖 Courses / Articles
+Recommend useful courses, tutorials or articles.
+
+## 6. 🧠 Practice
+Give 3 practical exercises.
+
+## 7. ⭐ Best Starting Resource
+Choose the single best starting point for this student.
 
 IMPORTANT:
-- Search the web for real resources.
-- DO NOT invent URLs.
-- Prefer reputable educational websites.
-- Prefer official documentation.
-- Prefer high-quality educational videos.
-- Clearly explain why each resource is useful.
-- Keep resources directly relevant to the topic.
-
-Maximum resources:
-{resource_count}
-
-Format the answer using Markdown.
+- Do not invent URLs.
+- Prefer reputable educational sources.
+- Keep the explanation practical.
+- Do not overwhelm the student.
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        tools=[
-            {
-                "type": "google_search"
-            }
-        ]
-    )
+    return call_model(prompt)
 
-    return interaction.output_text
 
-# ---------------------------------------------------------
+# ============================================================
 # AI TUTOR
-# ---------------------------------------------------------
+# ============================================================
 
 def ask_tutor(topic, question):
-
-    client = get_gemini_client()
-
-    if client is None:
-        raise ValueError("Gemini API key is missing.")
 
     prompt = f"""
 You are an AI tutor.
 
-The student is studying:
+The student's topic is:
+
 {topic}
 
 Student question:
+
 {question}
 
-Explain the answer in simple language.
+Answer like a helpful university tutor.
 
-Give examples when useful.
-Correct misconceptions politely.
-Use Markdown.
+Requirements:
+- Explain step by step.
+- Use simple English.
+- Give an example where useful.
+- Correct misconceptions.
+- Do not make the answer unnecessarily long.
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt
-    )
-
-    return interaction.output_text
+    return call_model(prompt, temperature=0.4)
 
 
-# ---------------------------------------------------------
+# ============================================================
 # QUIZ GENERATOR
-# ---------------------------------------------------------
+# ============================================================
 
 def generate_quiz(topic):
 
-    client = get_gemini_client()
-
-    if client is None:
-        raise ValueError("Gemini API key is missing.")
-
     prompt = f"""
-Create a 5-question multiple-choice quiz about:
+Create a short quiz about:
 
 {topic}
 
-Rules:
-- 4 options per question
-- Exactly one correct answer
-- Include the correct answer
-- Include a short explanation
+Create exactly 5 multiple-choice questions.
 
-Return Markdown.
+For every question provide:
+
+Question:
+A)
+B)
+C)
+D)
+
+Correct Answer:
+Explanation:
+
+Keep the difficulty suitable for a student learning this topic.
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt
-    )
-
-    return interaction.output_text
-
-# ---------------------------------------------------------
-# HEADER
-# ---------------------------------------------------------
-
-st.markdown("""
-<div class="hero">
-    <h1>Study<span>Finder</span> AI 🎓</h1>
-    <p>
-        Enter any course or topic and let AI discover
-        the best videos, websites, documentation and
-        learning resources for you.
-    </p>
-</div>
-""", unsafe_allow_html=True)
+    return call_model(prompt, temperature=0.5)
 
 
-# ---------------------------------------------------------
-# INPUT
-# ---------------------------------------------------------
+# ============================================================
+# HERO
+# ============================================================
 
-st.markdown('<div class="topic-box">', unsafe_allow_html=True)
-
-topic = st.text_input(
-    "🔎 What do you want to learn?",
-    placeholder="Example: Python for Data Science",
-    label_visibility="visible"
+st.markdown(
+    """
+    <div class="hero">
+        <h1>🎓 StudyFinder AI</h1>
+        <p>
+            Describe what you want to learn and discover
+            videos, websites, courses and practice resources.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-col1, col2, col3 = st.columns(3)
 
-with col1:
-    level = st.selectbox(
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+with st.sidebar:
+
+    st.header("⚙️ Study Settings")
+
+    student_level = st.selectbox(
         "Student Level",
         [
             "Beginner",
             "Intermediate",
-            "Advanced"
+            "Advanced",
+            "University Student"
         ]
     )
 
-with col2:
     resource_count = st.slider(
         "Number of resources",
-        min_value=5,
-        max_value=15,
-        value=8
+        min_value=3,
+        max_value=10,
+        value=5
     )
-
-with col3:
-    st.write("")
-    st.write("")
-    search_button = st.button(
-        "🚀 Find Learning Resources",
-        type="primary",
-        use_container_width=True
-    )
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ---------------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------------
-
-if "results" not in st.session_state:
-    st.session_state.results = None
-
-if "topic" not in st.session_state:
-    st.session_state.topic = ""
-
-
-# ---------------------------------------------------------
-# SEARCH
-# ---------------------------------------------------------
-
-if search_button:
-
-    if not topic.strip():
-        st.warning("Please enter a course or topic first.")
-    else:
-
-        with st.spinner(
-            "🤖 AI is researching learning resources..."
-        ):
-            try:
-                result = generate_study_resources(
-                    topic=topic.strip(),
-                    level=level,
-                    resource_count=resource_count
-                )
-
-                st.session_state.results = result
-                st.session_state.topic = topic.strip()
-
-            except Exception as e:
-                st.error(
-                    f"Something went wrong:\n\n{str(e)}"
-                )
-
-
-# ---------------------------------------------------------
-# DISPLAY RESULTS
-# ---------------------------------------------------------
-
-if st.session_state.results:
-
-    st.markdown(
-        f'<div class="section-title">📚 Learning Resources for '
-        f'{html.escape(st.session_state.topic)}</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(st.session_state.results)
 
     st.divider()
 
-    # -----------------------------------------------------
-    # AI TUTOR
-    # -----------------------------------------------------
-
     st.markdown(
-        '<div class="section-title">🤖 AI Tutor</div>',
-        unsafe_allow_html=True
+        """
+        ### 💡 How it works
+
+        **1.** Enter a topic
+
+        **2.** AI analyzes it
+
+        **3.** Study resources are generated
+
+        **4.** Ask the AI tutor
+
+        **5.** Test yourself with a quiz
+        """
     )
 
-    tutor_question = st.text_input(
-        "Ask anything about this topic:",
-        placeholder="Explain this topic like I am a beginner..."
+
+# ============================================================
+# TOPIC INPUT
+# ============================================================
+
+st.subheader("🔎 What do you want to learn?")
+
+topic = st.text_input(
+    "Enter a course, subject or topic",
+    placeholder="Example: Data Structures and Algorithms"
+)
+
+
+search_clicked = st.button(
+    "🚀 Find Study Resources",
+    use_container_width=True,
+    type="primary"
+)
+
+
+# ============================================================
+# SEARCH
+# ============================================================
+
+if search_clicked:
+
+    if not topic.strip():
+
+        st.warning("Please enter a topic first.")
+
+    else:
+
+        with st.spinner(
+            "🤖 AI is creating your personalized study guide..."
+        ):
+
+            result, error = generate_resources(
+                topic.strip(),
+                student_level,
+                resource_count
+            )
+
+        if error:
+
+            st.error(error)
+
+        else:
+
+            st.session_state["topic"] = topic.strip()
+            st.session_state["resources"] = result
+
+            st.success("Study resources generated!")
+
+            st.markdown(result)
+
+
+# ============================================================
+# AI TUTOR
+# ============================================================
+
+if "topic" in st.session_state:
+
+    st.divider()
+
+    st.header("🤖 AI Tutor")
+
+    tutor_question = st.text_area(
+        "Ask anything about your topic",
+        placeholder=(
+            "Example: Explain linked lists with a real-world example."
+        )
     )
 
-    if st.button("💡 Ask AI Tutor"):
+    if st.button(
+        "Ask AI Tutor",
+        use_container_width=True
+    ):
 
         if not tutor_question.strip():
+
             st.warning("Please enter a question.")
+
         else:
 
             with st.spinner("AI Tutor is thinking..."):
 
-                try:
-                    answer = ask_tutor(
-                        st.session_state.topic,
-                        tutor_question
-                    )
+                answer, error = ask_tutor(
+                    st.session_state["topic"],
+                    tutor_question
+                )
 
-                    st.markdown("### 🤖 AI Tutor Answer")
-                    st.markdown(answer)
+            if error:
 
-                except Exception as e:
-                    st.error(str(e))
+                st.error(error)
 
-    # -----------------------------------------------------
-    # QUIZ
-    # -----------------------------------------------------
+            else:
+
+                st.markdown("### 💬 Tutor Answer")
+
+                st.markdown(answer)
+
+
+# ============================================================
+# QUIZ
+# ============================================================
+
+if "topic" in st.session_state:
 
     st.divider()
 
-    st.markdown(
-        '<div class="section-title">🧠 Test Your Knowledge</div>',
-        unsafe_allow_html=True
-    )
+    st.header("🧠 Test Your Knowledge")
 
-    if st.button("🎯 Generate Quiz"):
+    if st.button(
+        "Generate 5-Question Quiz",
+        use_container_width=True
+    ):
 
         with st.spinner("Creating your quiz..."):
 
-            try:
-                quiz = generate_quiz(
-                    st.session_state.topic
-                )
+            quiz, error = generate_quiz(
+                st.session_state["topic"]
+            )
 
-                st.markdown(quiz)
+        if error:
 
-            except Exception as e:
-                st.error(str(e))
+            st.error(error)
+
+        else:
+
+            st.markdown(quiz)
 
 
-# ---------------------------------------------------------
+# ============================================================
 # FOOTER
-# ---------------------------------------------------------
+# ============================================================
 
-st.markdown("""
-<div class="footer">
-    <p>🎓 StudyFinder AI</p>
-    <p>
-        Learn smarter. Discover better resources.
-        Powered by Gemini.
-    </p>
-</div>
-""", unsafe_allow_html=True)
+st.divider()
+
+st.caption(
+    "🎓 StudyFinder AI • Powered by Streamlit + gpt-oss-120b"
+)
