@@ -4,63 +4,14 @@ import streamlit as st
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
     page_title="StudyFinder AI",
     page_icon="🎓",
-    layout="wide"
-)
-
-
-# ============================================================
-# CUSTOM CSS
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-
-    .main {
-        background-color: #f8fafc;
-    }
-
-    .hero {
-        padding: 40px 25px;
-        border-radius: 22px;
-        background: linear-gradient(
-            135deg,
-            #0f172a,
-            #1d4ed8
-        );
-        color: white;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-
-    .hero h1 {
-        font-size: 44px;
-        font-weight: 800;
-        margin-bottom: 10px;
-    }
-
-    .hero p {
-        font-size: 18px;
-        opacity: 0.9;
-    }
-
-    .info-card {
-        padding: 20px;
-        border-radius: 16px;
-        background: white;
-        border: 1px solid #e2e8f0;
-        margin-bottom: 15px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
@@ -69,15 +20,14 @@ st.markdown(
 # ============================================================
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 MODEL_NAME = "openai/gpt-oss-120b"
 
 
+# ============================================================
+# GET API KEY
+# ============================================================
+
 def get_groq_api_key():
-    """
-    Gets the Groq API key from Streamlit Secrets
-    or from an environment variable.
-    """
 
     try:
         if "GROQ_API_KEY" in st.secrets:
@@ -89,27 +39,307 @@ def get_groq_api_key():
 
 
 # ============================================================
-# GROQ API FUNCTION
+# GLOBAL CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    /* Main background */
+    .stApp {
+        background: #f7f9fc;
+    }
+
+    /* Remove default top spacing */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1200px;
+    }
+
+    /* Header */
+    .top-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0 25px 0;
+    }
+
+    .brand {
+        font-size: 27px;
+        font-weight: 800;
+        color: #111827;
+    }
+
+    .brand-icon {
+        background: #2563eb;
+        color: white;
+        padding: 8px 11px;
+        border-radius: 10px;
+        margin-right: 8px;
+    }
+
+    .tagline {
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    /* Hero */
+    .hero {
+        background: linear-gradient(
+            135deg,
+            #1d4ed8 0%,
+            #2563eb 50%,
+            #4f46e5 100%
+        );
+        padding: 55px 35px;
+        border-radius: 24px;
+        text-align: center;
+        color: white;
+        margin-bottom: 30px;
+        box-shadow: 0 15px 35px rgba(37, 99, 235, 0.20);
+    }
+
+    .hero-title {
+        font-size: 46px;
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
+
+    .hero-text {
+        font-size: 18px;
+        opacity: 0.95;
+        max-width: 700px;
+        margin: auto;
+        line-height: 1.6;
+    }
+
+    /* Search box */
+    .search-title {
+        font-size: 25px;
+        font-weight: 750;
+        color: #111827;
+        margin-bottom: 5px;
+    }
+
+    .search-subtitle {
+        color: #6b7280;
+        margin-bottom: 15px;
+    }
+
+    /* Feature cards */
+    .feature-card {
+        background: white;
+        padding: 22px;
+        border-radius: 17px;
+        border: 1px solid #e5e7eb;
+        height: 150px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.03);
+    }
+
+    .feature-icon {
+        font-size: 30px;
+        margin-bottom: 8px;
+    }
+
+    .feature-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .feature-text {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 5px;
+    }
+
+    /* Result container */
+    .result-header {
+        background: white;
+        border: 1px solid #e5e7eb;
+        padding: 20px;
+        border-radius: 16px;
+        margin-top: 30px;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #9ca3af;
+        padding: 25px;
+        font-size: 13px;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: white;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# TOP HEADER
+# ============================================================
+
+st.markdown(
+    """
+    <div class="top-header">
+
+        <div>
+            <span class="brand-icon">🎓</span>
+            <span class="brand">StudyFinder AI</span>
+        </div>
+
+        <div class="tagline">
+            Your AI-powered learning companion
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# HERO SECTION
+# ============================================================
+
+st.markdown(
+    """
+    <div class="hero">
+
+        <div class="hero-title">
+            Learn Anything. Smarter. 🚀
+        </div>
+
+        <div class="hero-text">
+            Enter any subject or topic and let AI create
+            a personalized study guide with videos,
+            websites, courses, tutorials and practice.
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+with st.sidebar:
+
+    st.markdown("## ⚙️ Study Settings")
+
+    st.markdown(
+        "Customize your learning experience."
+    )
+
+    student_level = st.selectbox(
+        "📚 Your Level",
+        [
+            "Beginner",
+            "Intermediate",
+            "Advanced",
+            "University Student"
+        ]
+    )
+
+    resource_count = st.slider(
+        "🔗 Number of Resources",
+        min_value=3,
+        max_value=10,
+        value=5
+    )
+
+    st.divider()
+
+    st.markdown("### ✨ Features")
+
+    st.markdown(
+        """
+        🎥 **Video Resources**
+
+        🌐 **Educational Websites**
+
+        📖 **Courses & Tutorials**
+
+        🤖 **AI Tutor**
+
+        🧠 **Practice Quiz**
+        """
+    )
+
+    st.divider()
+
+    st.caption(
+        "Powered by Groq"
+    )
+
+    st.caption(
+        "Model: gpt-oss-120b"
+    )
+
+
+# ============================================================
+# SEARCH SECTION
+# ============================================================
+
+st.markdown(
+    '<div class="search-title">🔎 What do you want to learn?</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="search-subtitle">'
+    'Enter a course, subject, programming language, '
+    'technology or any topic.'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+topic = st.text_input(
+    "Topic",
+    placeholder=(
+        "Example: Python Data Structures, "
+        "Machine Learning, Cybersecurity..."
+    ),
+    label_visibility="collapsed"
+)
+
+
+search_clicked = st.button(
+    "🚀 Find My Study Resources",
+    type="primary",
+    use_container_width=True
+)
+
+
+# ============================================================
+# GROQ API
 # ============================================================
 
 def call_groq(
     prompt,
     temperature=0.3,
-    max_tokens=2500
+    max_tokens=3500
 ):
-    """
-    Sends a request to Groq using the
-    OpenAI-compatible Chat Completions API.
-    """
 
     api_key = get_groq_api_key()
 
     if not api_key:
 
         return None, (
-            "❌ GROQ_API_KEY is missing.\n\n"
-            "Please add your Groq API key to "
-            "Streamlit Secrets."
+            "GROQ_API_KEY is missing. "
+            "Add it to Streamlit Secrets."
         )
 
     headers = {
@@ -124,13 +354,10 @@ def call_groq(
             {
                 "role": "system",
                 "content": (
-                    "You are StudyFinder AI, an intelligent "
+                    "You are StudyFinder AI, an expert "
                     "educational assistant. "
-                    "Your job is to help students discover "
-                    "useful learning resources and understand "
-                    "academic topics. "
-                    "Always be accurate, practical and easy "
-                    "to understand. "
+                    "Help students find useful learning "
+                    "resources and understand academic topics. "
                     "Never invent URLs."
                 )
             },
@@ -141,7 +368,6 @@ def call_groq(
         ],
 
         "temperature": temperature,
-
         "max_tokens": max_tokens
     }
 
@@ -154,38 +380,27 @@ def call_groq(
             timeout=90
         )
 
-        # ----------------------------------------------------
-        # RATE LIMIT
-        # ----------------------------------------------------
-
         if response.status_code == 429:
 
             return None, (
-                "⚠️ Groq rate limit reached.\n\n"
+                "Groq rate limit reached. "
                 "Please wait a few seconds and try again."
             )
-
-        # ----------------------------------------------------
-        # INVALID API KEY
-        # ----------------------------------------------------
 
         if response.status_code in [401, 403]:
 
             return None, (
-                "❌ Your Groq API key is invalid or "
-                "does not have permission to use this API."
+                "Invalid Groq API key. "
+                "Please check your Streamlit Secrets."
             )
-
-        # ----------------------------------------------------
-        # OTHER API ERROR
-        # ----------------------------------------------------
 
         if response.status_code != 200:
 
             try:
+
                 error_data = response.json()
 
-                error_message = (
+                message = (
                     error_data
                     .get("error", {})
                     .get("message", response.text)
@@ -193,51 +408,34 @@ def call_groq(
 
             except Exception:
 
-                error_message = response.text
+                message = response.text
 
             return None, (
-                f"❌ Groq API Error "
-                f"({response.status_code}):\n\n"
-                f"{error_message}"
+                f"Groq API Error ({response.status_code}): "
+                f"{message}"
             )
-
-        # ----------------------------------------------------
-        # SUCCESS
-        # ----------------------------------------------------
 
         data = response.json()
 
-        answer = (
-            data["choices"][0]["message"]["content"]
-        )
+        answer = data["choices"][0]["message"]["content"]
 
         return answer, None
 
     except requests.exceptions.Timeout:
 
         return None, (
-            "⏱️ Groq took too long to respond. "
-            "Please try again."
+            "The AI server took too long to respond."
         )
 
     except requests.exceptions.ConnectionError:
 
         return None, (
-            "🌐 Could not connect to Groq. "
-            "Please check your internet connection."
-        )
-
-    except requests.exceptions.RequestException as e:
-
-        return None, (
-            f"❌ Network error:\n\n{str(e)}"
+            "Could not connect to Groq."
         )
 
     except Exception as e:
 
-        return None, (
-            f"❌ Unexpected error:\n\n{str(e)}"
-        )
+        return None, str(e)
 
 
 # ============================================================
@@ -251,72 +449,59 @@ def generate_resources(
 ):
 
     prompt = f"""
-Create a personalized study guide.
+Create a personalized study guide for:
 
-TOPIC:
-{topic}
+Topic: {topic}
 
-STUDENT LEVEL:
-{level}
+Student Level: {level}
 
-NUMBER OF RESOURCES:
-{resource_count}
+Resources requested: {resource_count}
 
-Return the answer using Markdown.
+Return a clean Markdown response.
 
-Use this exact structure:
+Use exactly these sections:
 
 # 📚 Study Guide
 
 ## 🎯 Topic Overview
 
-Explain the topic in simple language.
+Explain the topic simply.
 
-## 🛣️ Recommended Learning Path
+## 🛣️ Learning Roadmap
 
-Create a step-by-step learning path.
+Give 5 logical learning steps.
 
 ## 🎥 Video Resources
 
-Recommend useful video topics.
+Give {resource_count} useful video recommendations.
 
-IMPORTANT:
-Do NOT invent individual video URLs.
+DO NOT invent YouTube video URLs.
 
-Instead create YouTube search links like:
+Instead use YouTube search URLs:
 
-https://www.youtube.com/results?search_query=YOUR+SEARCH+QUERY
+https://www.youtube.com/results?search_query=
 
-For every video recommendation include:
+For example:
 
-### Video X
-**Topic:** ...
-**Why watch it:** ...
-**YouTube Search:** ...
+[Search YouTube](https://www.youtube.com/results?search_query=Python+data+structures)
 
 ## 🌐 Websites
 
 Recommend useful educational websites.
 
-For every website provide:
+Give the website name, purpose and official URL.
 
-**Website:** ...
-**Purpose:** ...
-**URL:** ...
-
-Only provide URLs you are confident are real.
-
-Prefer reputable educational resources such as:
+Use reputable resources such as:
 
 - MDN
 - W3Schools
-- GeeksforGeeks
 - freeCodeCamp
 - Khan Academy
+- GeeksforGeeks
 - Coursera
 - edX
 - MIT OpenCourseWare
-- official documentation
+- Official documentation
 
 ## 📖 Courses & Tutorials
 
@@ -324,17 +509,16 @@ Recommend useful courses or tutorials.
 
 ## 🧪 Practice
 
-Give 3 practical exercises.
+Give 3 exercises.
 
 ## ⭐ Best Starting Point
 
-Tell the student which resource they should start with and why.
+Tell the student what they should study first.
 
 IMPORTANT:
-- Do not invent URLs.
-- Keep the answer practical.
-- Use simple English.
-- Do not overwhelm the student.
+Do not invent URLs.
+Use simple English.
+Make the recommendations useful for students.
 """
 
     return call_groq(
@@ -345,174 +529,10 @@ IMPORTANT:
 
 
 # ============================================================
-# AI TUTOR
+# SEARCH ACTION
 # ============================================================
 
-def ask_tutor(topic, question):
-
-    prompt = f"""
-You are an expert university tutor.
-
-CURRENT TOPIC:
-{topic}
-
-STUDENT QUESTION:
-{question}
-
-Answer the student clearly.
-
-Requirements:
-
-1. Explain step-by-step.
-2. Use simple English.
-3. Give an example.
-4. Correct misunderstandings.
-5. Keep the answer focused.
-6. Use code examples when the topic is programming.
-7. Use Markdown headings and bullet points.
-"""
-
-    return call_groq(
-        prompt,
-        temperature=0.4,
-        max_tokens=2000
-    )
-
-
-# ============================================================
-# QUIZ GENERATOR
-# ============================================================
-
-def generate_quiz(topic):
-
-    prompt = f"""
-Create a quiz for a student studying:
-
-{topic}
-
-Create exactly 5 multiple-choice questions.
-
-Use this format:
-
-## Question 1
-
-Question text
-
-A. Option
-B. Option
-C. Option
-D. Option
-
-**Correct Answer:** B
-
-**Explanation:** Explain why.
-
-Repeat this for all 5 questions.
-
-Make the questions educational rather than trivial.
-"""
-
-    return call_groq(
-        prompt,
-        temperature=0.5,
-        max_tokens=2500
-    )
-
-
-# ============================================================
-# HERO SECTION
-# ============================================================
-
-st.markdown(
-    """
-    <div class="hero">
-
-        <h1>🎓 StudyFinder AI</h1>
-
-        <p>
-            Describe what you want to learn and discover
-            videos, websites, courses and practice resources.
-        </p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-with st.sidebar:
-
-    st.header("⚙️ Study Settings")
-
-    student_level = st.selectbox(
-        "Student Level",
-        [
-            "Beginner",
-            "Intermediate",
-            "Advanced",
-            "University Student"
-        ]
-    )
-
-    resource_count = st.slider(
-        "Number of resources",
-        min_value=3,
-        max_value=10,
-        value=5
-    )
-
-    st.divider()
-
-    st.markdown(
-        """
-        ### 💡 How it works
-
-        **1.** Enter a topic
-
-        **2.** AI analyzes it
-
-        **3.** Resources are generated
-
-        **4.** Ask the AI Tutor
-
-        **5.** Generate a quiz
-        """
-    )
-
-    st.divider()
-
-    st.caption(
-        "Powered by Groq + gpt-oss-120b"
-    )
-
-
-# ============================================================
-# TOPIC INPUT
-# ============================================================
-
-st.subheader("🔎 What do you want to learn?")
-
-topic = st.text_input(
-    "Enter a course, subject or topic",
-    placeholder=(
-        "Example: Python Data Structures"
-    )
-)
-
-
-# ============================================================
-# SEARCH BUTTON
-# ============================================================
-
-if st.button(
-    "🚀 Find Study Resources",
-    use_container_width=True,
-    type="primary"
-):
+if search_clicked:
 
     if not topic.strip():
 
@@ -523,8 +543,7 @@ if st.button(
     else:
 
         with st.spinner(
-            "🤖 gpt-oss-120b is creating "
-            "your study guide..."
+            "🤖 AI is creating your personalized study guide..."
         ):
 
             result, error = generate_resources(
@@ -540,30 +559,136 @@ if st.button(
         else:
 
             st.session_state["topic"] = topic.strip()
-
             st.session_state["resources"] = result
 
             st.success(
-                "✅ Study resources generated!"
+                "🎉 Your study resources are ready!"
             )
-
-            st.markdown(result)
 
 
 # ============================================================
-# DISPLAY SAVED RESOURCES
+# FEATURE CARDS
+# ============================================================
+
+if "resources" not in st.session_state:
+
+    st.markdown("### 🌟 Everything You Need to Learn")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.markdown(
+            """
+            <div class="feature-card">
+
+                <div class="feature-icon">🎥</div>
+
+                <div class="feature-title">
+                    Video Learning
+                </div>
+
+                <div class="feature-text">
+                    Discover useful videos
+                    for your topic.
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col2:
+
+        st.markdown(
+            """
+            <div class="feature-card">
+
+                <div class="feature-icon">🌐</div>
+
+                <div class="feature-title">
+                    Best Websites
+                </div>
+
+                <div class="feature-text">
+                    Find trusted educational
+                    websites and documentation.
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col3:
+
+        st.markdown(
+            """
+            <div class="feature-card">
+
+                <div class="feature-icon">📖</div>
+
+                <div class="feature-title">
+                    Courses
+                </div>
+
+                <div class="feature-text">
+                    Discover courses and
+                    tutorials to learn faster.
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col4:
+
+        st.markdown(
+            """
+            <div class="feature-card">
+
+                <div class="feature-icon">🤖</div>
+
+                <div class="feature-title">
+                    AI Tutor
+                </div>
+
+                <div class="feature-text">
+                    Ask questions and get
+                    personalized explanations.
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+# ============================================================
+# RESULTS
 # ============================================================
 
 if "resources" in st.session_state:
 
-    if not st.session_state.get(
-        "resources_displayed",
-        False
-    ):
+    st.markdown(
+        """
+        <div class="result-header">
 
-        st.session_state[
-            "resources_displayed"
-        ] = True
+            <h2>📚 Your Personalized Study Guide</h2>
+
+            <p>
+                AI-generated resources based on your topic.
+            </p>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        st.session_state["resources"]
+    )
 
 
 # ============================================================
@@ -576,12 +701,17 @@ if "topic" in st.session_state:
 
     st.header("🤖 AI Tutor")
 
-    tutor_question = st.text_area(
-        "Ask a question about your topic",
+    st.write(
+        f"Ask anything about **{st.session_state['topic']}**."
+    )
+
+    question = st.text_area(
+        "Your question",
         placeholder=(
-            "Example: Explain linked lists "
-            "with a real-world example."
-        )
+            "Example: Explain this topic with a "
+            "real-world example."
+        ),
+        label_visibility="collapsed"
     )
 
     if st.button(
@@ -589,21 +719,40 @@ if "topic" in st.session_state:
         use_container_width=True
     ):
 
-        if not tutor_question.strip():
+        if not question.strip():
 
             st.warning(
-                "Please enter a question."
+                "Please enter your question."
             )
 
         else:
+
+            tutor_prompt = f"""
+You are an expert tutor.
+
+Topic:
+{st.session_state['topic']}
+
+Student question:
+{question}
+
+Explain the answer clearly.
+
+Use:
+- Simple English
+- Step-by-step explanation
+- Examples
+- Practical explanation
+"""
 
             with st.spinner(
                 "🤖 AI Tutor is thinking..."
             ):
 
-                answer, error = ask_tutor(
-                    st.session_state["topic"],
-                    tutor_question
+                answer, error = call_groq(
+                    tutor_prompt,
+                    temperature=0.4,
+                    max_tokens=2000
                 )
 
             if error:
@@ -612,9 +761,7 @@ if "topic" in st.session_state:
 
             else:
 
-                st.markdown(
-                    "### 💡 Tutor Answer"
-                )
+                st.markdown("### 💡 Tutor Answer")
 
                 st.markdown(answer)
 
@@ -634,12 +781,35 @@ if "topic" in st.session_state:
         use_container_width=True
     ):
 
+        quiz_prompt = f"""
+Create a 5-question multiple-choice quiz about:
+
+{st.session_state['topic']}
+
+For every question provide:
+
+Question
+
+A. Option
+B. Option
+C. Option
+D. Option
+
+Correct Answer
+
+Explanation
+
+Make it suitable for a student.
+"""
+
         with st.spinner(
-            "🤖 Creating your quiz..."
+            "🧠 Creating your quiz..."
         ):
 
-            quiz, error = generate_quiz(
-                st.session_state["topic"]
+            quiz, error = call_groq(
+                quiz_prompt,
+                temperature=0.5,
+                max_tokens=2500
             )
 
         if error:
@@ -648,6 +818,8 @@ if "topic" in st.session_state:
 
         else:
 
+            st.markdown("### 📝 Your Quiz")
+
             st.markdown(quiz)
 
 
@@ -655,9 +827,18 @@ if "topic" in st.session_state:
 # FOOTER
 # ============================================================
 
-st.divider()
+st.markdown(
+    """
+    <div class="footer">
 
-st.caption(
-    "🎓 StudyFinder AI | "
-    "Streamlit + Groq + gpt-oss-120b"
+        🎓 <b>StudyFinder AI</b>
+
+        <br>
+
+        Learn smarter • Discover better resources •
+        Powered by gpt-oss-120b
+
+    </div>
+    """,
+    unsafe_allow_html=True
 )
